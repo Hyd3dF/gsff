@@ -4,21 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>İz Map</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
-        :root {
-            --primary: #007AFF;
-            --bg: #ffffff;
-            --text-main: #1c1c1e;
-            --text-muted: #8e8e93;
-            --border: rgba(0, 0, 0, 0.05);
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-
         * {
             box-sizing: border-box;
             margin: 0;
@@ -29,249 +17,179 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            font-family: var(--font);
-            background-color: var(--bg);
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
-        /* Map Layer Selection Overlay (Mobile Responsive) */
-        .map-layer-selector {
-            position: absolute;
-            top: 20px;
-            right: 16px;
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 5px;
-            border-radius: 14px;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-            border: 1px solid var(--border);
-            display: flex;
-            gap: 4px;
-            max-width: calc(100% - 32px);
-            flex-wrap: wrap; /* Auto wraps on very small screens */
-            justify-content: flex-end;
+        /* Apple Maps Pin Style (SVG) */
+        .apple-pin {
+            width: 32px;
+            height: 32px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32'><path d='M16 3C10.5 3 6 7.5 6 13c0 7.2 8.7 15.3 9.4 15.9.3.3.8.3 1.1 0 .8-.6 9.5-8.7 9.5-15.9 0-5.5-4.5-10-10-10z' fill='%23FF3B30' stroke='%23ffffff' stroke-width='2'/><circle cx='16' cy='13' r='5' fill='%23ffffff'/></svg>");
+            background-size: contain;
+            background-repeat: no-repeat;
+            filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.25));
         }
 
-        .map-ctrl-btn {
-            border: none;
-            background: none;
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-family: var(--font);
-            font-size: 11px;
-            font-weight: 750;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-
-        .map-ctrl-btn.active {
-            background-color: var(--primary);
-            color: white;
-            box-shadow: 0 4px 8px rgba(0, 122, 255, 0.15);
-        }
-
-        /* Custom map markers */
-        .custom-pin {
-            background-color: var(--primary);
+        /* iOS User Location Blue Dot */
+        .user-location-dot {
             width: 14px;
             height: 14px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s;
-        }
-        
-        .custom-pin:hover {
-            transform: scale(1.2);
-        }
-
-        /* GPS Pulse Effect */
-        .gps-pulse {
-            width: 18px;
-            height: 18px;
             background-color: #007AFF;
+            border: 2.5px solid #ffffff;
             border-radius: 50%;
-            border: 2px solid white;
             box-shadow: 0 0 8px rgba(0, 122, 255, 0.5);
-            animation: pulse 1.5s infinite;
+            position: relative;
+        }
+        .user-location-pulse {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: rgba(0, 122, 255, 0.2);
+            animation: user-pulse 2s infinite ease-out;
+        }
+        @keyframes user-pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.8); opacity: 0; }
         }
 
-        @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.9; }
-            50% { transform: scale(1.2); opacity: 0.5; }
-            100% { transform: scale(0.9); opacity: 0.9; }
+        /* Locate Button on bottom right (iOS style) */
+        .locate-button {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            width: 48px;
+            height: 48px;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 50%;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .locate-button:active {
+            transform: scale(0.92);
+            background-color: #e5e5ea;
+        }
+        .locate-icon {
+            width: 20px;
+            height: 20px;
+            fill: #007AFF;
         }
 
-        /* Small mobile screens optimization */
-        @media (max-width: 380px) {
-            .map-layer-selector {
-                padding: 4px;
-                border-radius: 10px;
-                top: 10px;
-                right: 10px;
-                max-width: calc(100% - 20px);
-            }
-            .map-ctrl-btn {
-                padding: 6px 10px;
-                font-size: 10px;
-                border-radius: 8px;
-            }
+        /* iOS styled Leaflet popup */
+        .leaflet-popup-content-wrapper {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 14px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 4px;
+        }
+        .leaflet-popup-tip {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: none;
+        }
+        .popup-card {
+            padding: 6px 10px;
+        }
+        .popup-card h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1c1c1e;
+        }
+        .popup-card p {
+            margin: 4px 0 0 0;
+            font-size: 12px;
+            color: #8e8e93;
+            line-height: 1.3;
         }
     </style>
 </head>
 <body>
 
-    <!-- Dynamic Style Selector Controls Floating on Map -->
-    <div class="map-layer-selector" id="controls-container">
-        <!-- Built dynamically from Python configurations -->
-    </div>
-
     <div id="map"></div>
+
+    <div class="locate-button" onclick="locateUser()" title="Find current location">
+        <svg class="locate-icon" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        let map;
-        const activeMarkers = {}; // Keep track of active markers on the map to prevent redraw lag
         const apiKey = "{{ api_key }}";
-        let userLocationMarker;
+        let map;
+        let userLocationMarker = null;
+        const activeMarkers = {};
 
-        // Define map tile layers
-        const layers = {
-            'standard': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; CARTO'
-            }),
-            'hybrid': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '&copy; Esri'
-            }),
-            '3d': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenTopoMap'
-            })
-        };
-
-        let currentLayer = 'standard';
-
-        // Set map styles dynamically
-        function setMapStyle(style) {
-            const targetLayer = style === 'hybrid' ? 'hybrid' : (style === '3d' ? '3d' : 'standard');
-            if (currentLayer === targetLayer) return;
-            
-            map.removeLayer(layers[currentLayer]);
-            layers[targetLayer].addTo(map);
-            
-            currentLayer = targetLayer;
-        }
-
-        // Initialize Leaflet Map
         function initMap() {
-            // Default center around Turkey
+            // Initialize Leaflet Map centered on Turkey by default
             map = L.map('map', {
-                zoomControl: false, // Clean UI without zoom control
-                attributionControl: false // Minimalist clean look
+                zoomControl: false,
+                attributionControl: false
             }).setView([39.9334, 32.8597], 6);
 
-            // Add default standard 2D layer
-            layers['standard'].addTo(map);
-            
-            // Geolocation callbacks
+            // Add Apple Maps style CartoDB Positron tile layer
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20,
+                subdomains: 'abcd'
+            }).addTo(map);
+
+            // Locate user on start
+            map.locate({ setView: false, maxZoom: 14 });
+
             map.on('locationfound', onLocationFound);
             map.on('locationerror', onLocationError);
-            
-            // Fetch configuration and markers
-            loadConfigAndControls();
-            loadMarkers();
-            
-            // Poll for markers using smooth diffing (no-lag panning)
-            setInterval(loadMarkers, 3000);
-        }
 
-        // Fetch dynamic buttons from Python `/api/config` and build UI
-        function loadConfigAndControls() {
-            fetch('/api/config', {
-                method: 'GET',
-                headers: {
-                    'X-API-Key': apiKey,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(res => res.json())
-            .then(config => {
-                const container = document.getElementById('controls-container');
-                container.innerHTML = '';
-
-                if (config.map_buttons && config.map_buttons.length > 0) {
-                    config.map_buttons.forEach((btn, idx) => {
-                        const button = document.createElement('button');
-                        button.className = 'map-ctrl-btn';
-                        button.id = `btn-${btn.id}`;
-                        button.innerText = btn.label;
-                        
-                        // Set first button active on load
-                        if (idx === 0) {
-                            button.classList.add('active');
-                            if (btn.action_type === 'style') {
-                                setMapStyle(btn.map_type);
-                            }
-                        }
-
-                        // Attach event listeners
-                        button.onclick = function() {
-                            // Toggle active states for button classes
-                            document.querySelectorAll('.map-ctrl-btn').forEach(b => b.classList.remove('active'));
-                            button.classList.add('active');
-
-                            if (btn.action_type === 'style') {
-                                // Switch Leaflet tiles based on style parameters
-                                const styleMode = btn.id === '3d' || btn.pitch > 30 ? '3d' : btn.map_type;
-                                setMapStyle(styleMode);
-                            } else if (btn.action_type === 'function') {
-                                // Trigger function call
-                                if (btn.id === 'locate') {
-                                    triggerLocation();
-                                }
-                            }
-                        };
-                        
-                        container.appendChild(button);
-                    });
-                }
-            })
-            .catch(err => {
-                console.error('Error loading config:', err.message);
-            });
-        }
-
-        // Locate User GPS logic
-        function triggerLocation() {
-            map.locate({setView: true, maxZoom: 14});
+            // Fetch and draw markers
+            fetchMarkers();
+            // Poll for updates every 3 seconds
+            setInterval(fetchMarkers, 3000);
         }
 
         function onLocationFound(e) {
-            const radius = e.accuracy;
-
+            const latlng = e.latlng;
             if (userLocationMarker) {
-                map.removeLayer(userLocationMarker);
+                userLocationMarker.setLatLng(latlng);
+            } else {
+                const customIcon = L.divIcon({
+                    className: 'user-icon-container',
+                    html: '<div class="user-location-dot"><div class="user-location-pulse"></div></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                userLocationMarker = L.marker(latlng, { icon: customIcon }).addTo(map);
             }
-
-            // Create a pulsating blue marker on user GPS location
-            userLocationMarker = L.marker(e.latlng, {
-                icon: L.divIcon({
-                    className: 'gps-pulse-icon',
-                    html: "<div class='gps-pulse'></div>",
-                    iconSize: [18, 18],
-                    iconAnchor: [9, 9]
-                })
-            }).addTo(map).bindPopup("You are here").openPopup();
+            // Auto pan to user's location on initial load
+            map.setView(latlng, 14);
         }
 
         function onLocationError(e) {
-            alert("Location access denied or unavailable: " + e.message);
+            console.log('Location not found: ' + e.message);
         }
 
-        // Load active markers with zero-lag diffing (smooth panning)
-        function loadMarkers() {
+        function locateUser() {
+            if (map) {
+                map.locate({ setView: true, maxZoom: 14 });
+            }
+        }
+
+        function fetchMarkers() {
             fetch('/api/markers', {
                 method: 'GET',
                 headers: {
@@ -284,46 +202,44 @@
                 if (!res.ok) throw new Error('API key validation failed');
                 return res.json();
             })
-            .then(data => {
-                const newMarkersMap = {};
-
-                data.forEach(marker => {
-                    const key = `${marker.coordinate.latitude.toFixed(6)}_${marker.coordinate.longitude.toFixed(6)}`;
-                    newMarkersMap[key] = marker;
-
-                    // If marker is not on map, add it
+            .then(markers => {
+                const currentKeys = new Set();
+                
+                markers.forEach(m => {
+                    const key = `${m.coordinate.latitude.toFixed(6)}_${m.coordinate.longitude.toFixed(6)}`;
+                    currentKeys.add(key);
+                    
                     if (!activeMarkers[key]) {
-                        const leafMarker = L.marker(
-                            [marker.coordinate.latitude, marker.coordinate.longitude],
-                            {
-                                icon: L.divIcon({
-                                    className: 'custom-pin-icon',
-                                    html: "<div class='custom-pin'></div>",
-                                    iconSize: [14, 14],
-                                    iconAnchor: [7, 7]
-                                })
-                            }
-                        )
-                        .bindPopup(`<b>${marker.title}</b><br>${marker.description || ''}`)
-                        .addTo(map);
-
-                        activeMarkers[key] = leafMarker;
+                        const markerIcon = L.divIcon({
+                            className: 'apple-pin-container',
+                            html: '<div class="apple-pin"></div>',
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 30]
+                        });
+                        
+                        const leafletMarker = L.marker([m.coordinate.latitude, m.coordinate.longitude], { icon: markerIcon })
+                            .bindPopup(`<div class="popup-card"><h3>${m.title}</h3><p>${m.description || ''}</p></div>`, {
+                                closeButton: false,
+                                offset: L.point(0, -22)
+                            })
+                            .addTo(map);
+                        
+                        activeMarkers[key] = leafletMarker;
                     } else {
-                        // If marker details changed, update popup
-                        activeMarkers[key].setPopupContent(`<b>${marker.title}</b><br>${marker.description || ''}`);
+                        activeMarkers[key].setPopupContent(`<div class="popup-card"><h3>${m.title}</h3><p>${m.description || ''}</p></div>`);
                     }
                 });
-
-                // Remove markers that are no longer present in the database (cached list diffing)
-                for (let key in activeMarkers) {
-                    if (!newMarkersMap[key]) {
+                
+                // Remove markers that are no longer in the DB
+                Object.keys(activeMarkers).forEach(key => {
+                    if (!currentKeys.has(key)) {
                         map.removeLayer(activeMarkers[key]);
                         delete activeMarkers[key];
                     }
-                }
+                });
             })
             .catch(err => {
-                console.error('Error fetching markers:', err.message);
+                console.error("Error loading markers:", err);
             });
         }
 

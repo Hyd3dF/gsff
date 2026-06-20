@@ -1,21 +1,14 @@
 import os
 import sqlite3
 import uuid
-import threading
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React Native/Expo requests
+CORS(app)  # Enable CORS for mobile client requests
 
 DB_FILE = 'map_data.db'
-
-# Thread-safe global cache variables
-CACHE_API_KEYS = set()
-CACHE_MARKERS = []
-CACHE_CONFIG = {}
-CACHE_LOCK = threading.Lock()
 
 def get_db():
     conn = sqlite3.connect(DB_FILE)
@@ -47,19 +40,6 @@ def init_db():
         )
     ''')
     
-    # Create map_buttons configuration table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS map_buttons (
-            id TEXT PRIMARY KEY,
-            label TEXT NOT NULL,
-            action_type TEXT NOT NULL,  -- 'style' or 'function'
-            map_type TEXT NOT NULL,     -- 'standard' or 'hybrid'
-            pitch INTEGER NOT NULL,     -- 0 to 90
-            buildings INTEGER NOT NULL, -- 0 or 1
-            enabled INTEGER NOT NULL    -- 0 or 1
-        )
-    ''')
-    
     # Pre-populate sample markers if empty
     cursor.execute("SELECT COUNT(*) FROM markers")
     if cursor.fetchone()[0] == 0:
@@ -83,90 +63,23 @@ def init_db():
         )
         print(f"--> Initialized database. Default API Key: {default_key}")
 
-    # Pre-populate map buttons if empty
-    cursor.execute("SELECT COUNT(*) FROM map_buttons")
-    if cursor.fetchone()[0] == 0:
-        default_buttons = [
-            ('2d', '2D Harita', 'style', 'standard', 0, 0, 1),
-            ('3d', '3D Görünüm', 'style', 'standard', 65, 1, 1),
-            ('detail', 'Detaylı Uydu', 'style', 'hybrid', 45, 1, 1),
-            ('locate', 'Konumumu Bul', 'function', 'standard', 0, 0, 1)
-        ]
-        cursor.executemany(
-            "INSERT INTO map_buttons (id, label, action_type, map_type, pitch, buildings, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            default_buttons
-        )
-
     conn.commit()
     conn.close()
 
-# Reload everything from SQLite database into memory cache
-def load_cache():
-    global CACHE_API_KEYS, CACHE_MARKERS, CACHE_CONFIG
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # 1. Load active API keys
-    cursor.execute("SELECT key FROM api_keys")
-    keys_rows = cursor.fetchall()
-    keys_set = {row["key"] for row in keys_rows}
-    
-    # 2. Load markers
-    cursor.execute("SELECT id, latitude, longitude, title, description FROM markers")
-    marker_rows = cursor.fetchall()
-    markers_list = []
-    for row in marker_rows:
-        markers_list.append({
-            "coordinate": {
-                "latitude": row["latitude"],
-                "longitude": row["longitude"]
-            },
-            "title": row["title"],
-            "description": row["description"]
-        })
-        
-    # 3. Load map buttons config (only enabled ones for CACHE_CONFIG)
-    cursor.execute("SELECT id, label, action_type, map_type, pitch, buildings FROM map_buttons WHERE enabled = 1")
-    buttons_rows = cursor.fetchall()
-    buttons_list = []
-    for row in buttons_rows:
-        buttons_list.append({
-            "id": row["id"],
-            "label": row["label"],
-            "action_type": row["action_type"],
-            "map_type": row["map_type"],
-            "pitch": row["pitch"],
-            "buildings": bool(row["buildings"])
-        })
-        
-    conn.close()
-    
-    # Update cache atomically
-    with CACHE_LOCK:
-        CACHE_API_KEYS = keys_set
-        CACHE_MARKERS = markers_list
-        CACHE_CONFIG = {
-            "default_region": {
-                "latitude": 39.9334,
-                "longitude": 32.8597,
-                "latitudeDelta": 10,
-                "longitudeDelta": 10,
-            },
-            "default_view_mode": "2d",
-            "map_buttons": buttons_list
-        }
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Cache successfully updated in memory.")
-
-# Helper to validate API keys from in-memory cache directly (sub-microsecond speed)
+# Helper to validate API keys from database
 def require_api_key(f):
     def decorator(*args, **kwargs):
         api_key = request.headers.get('X-API-Key')
         if not api_key:
             return jsonify({"error": "Missing API Key"}), 401
         
-        # Lockless read from cache set
-        if api_key not in CACHE_API_KEYS:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM api_keys WHERE key = ?", (api_key,))
+        key_exists = cursor.fetchone()
+        conn.close()
+        
+        if not key_exists:
             return jsonify({"error": "Invalid API Key"}), 403
             
         return f(*args, **kwargs)
@@ -176,6 +89,24 @@ def require_api_key(f):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/map')
+def map_view():
+    api_key = request.args.get('key')
+    if not api_key:
+        return "Missing API Key", 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM api_keys WHERE key = ?", (api_key,))
+    key_exists = cursor.fetchone()
+    conn.close()
+    
+    if not key_exists:
+        return "Invalid API Key", 403
+        
+    return render_template('map_view.html', api_key=api_key)
+
 
 # ADMIN API: Get all markers
 @app.route('/admin/markers', methods=['GET'])
@@ -209,8 +140,6 @@ def admin_add_marker():
     new_id = cursor.lastrowid
     conn.close()
     
-    # Sync cache
-    load_cache()
     return jsonify({"success": True, "id": new_id})
 
 # ADMIN API: Delete marker
@@ -221,9 +150,6 @@ def admin_delete_marker(marker_id):
     cursor.execute("DELETE FROM markers WHERE id = ?", (marker_id,))
     conn.commit()
     conn.close()
-    
-    # Sync cache
-    load_cache()
     return jsonify({"success": True})
 
 # ADMIN API: Get API Keys
@@ -252,8 +178,6 @@ def admin_generate_key():
     conn.commit()
     conn.close()
     
-    # Sync cache
-    load_cache()
     return jsonify({"success": True, "key": new_key})
 
 # ADMIN API: Revoke/Delete API Key
@@ -264,130 +188,33 @@ def admin_delete_key(key):
     cursor.execute("DELETE FROM api_keys WHERE key = ?", (key,))
     conn.commit()
     conn.close()
-    
-    # Sync cache
-    load_cache()
-    return jsonify({"success": True})
-
-# ADMIN API: Get Map Buttons
-@app.route('/admin/map-buttons', methods=['GET'])
-def admin_get_map_buttons():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM map_buttons")
-    rows = cursor.fetchall()
-    conn.close()
-    return jsonify([dict(row) for row in rows])
-
-# ADMIN API: Update Map Button
-@app.route('/admin/map-buttons/<string:button_id>', methods=['POST'])
-def admin_update_map_button(button_id):
-    data = request.json
-    label = data.get('label')
-    action_type = data.get('action_type')
-    map_type = data.get('map_type')
-    pitch = data.get('pitch')
-    buildings = data.get('buildings')
-    enabled = data.get('enabled')
-    
-    if label is None or action_type is None or map_type is None or pitch is None or buildings is None or enabled is None:
-        return jsonify({"error": "All fields are required"}), 400
-        
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE map_buttons SET label = ?, action_type = ?, map_type = ?, pitch = ?, buildings = ?, enabled = ? WHERE id = ?",
-        (label, action_type, map_type, int(pitch), int(buildings), int(enabled), button_id)
-    )
-    conn.commit()
-    conn.close()
-    
-    # Sync cache
-    load_cache()
-    return jsonify({"success": True})
-
-# ADMIN API: Add Custom Map Button
-@app.route('/admin/map-buttons', methods=['POST'])
-def admin_add_map_button():
-    data = request.json
-    label = data.get('label')
-    action_type = data.get('action_type', 'style')
-    map_type = data.get('map_type', 'standard')
-    pitch = data.get('pitch', 0)
-    buildings = data.get('buildings', 0)
-    enabled = data.get('enabled', 1)
-    
-    if not label:
-        return jsonify({"error": "Label is required"}), 400
-        
-    # Generate unique ID
-    button_id = "btn_" + uuid.uuid4().hex[:8]
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO map_buttons (id, label, action_type, map_type, pitch, buildings, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (button_id, label, action_type, map_type, int(pitch), int(buildings), int(enabled))
-    )
-    conn.commit()
-    conn.close()
-    
-    # Sync cache
-    load_cache()
-    return jsonify({"success": True, "id": button_id})
-
-# ADMIN API: Delete Custom Map Button
-@app.route('/admin/map-buttons/<string:button_id>', methods=['DELETE'])
-def admin_delete_map_button(button_id):
-    # Don't delete system default buttons, just disable them
-    system_buttons = ['2d', '3d', 'detail', 'locate']
-    conn = get_db()
-    cursor = conn.cursor()
-    if button_id in system_buttons:
-        cursor.execute("UPDATE map_buttons SET enabled = 0 WHERE id = ?", (button_id,))
-    else:
-        cursor.execute("DELETE FROM map_buttons WHERE id = ?", (button_id,))
-    conn.commit()
-    conn.close()
-    
-    # Sync cache
-    load_cache()
     return jsonify({"success": True})
 
 
-# MOBILE APP API: Get Config (Cached, sub-millisecond)
-@app.route('/api/config', methods=['GET'])
-@require_api_key
-def get_config():
-    return jsonify(CACHE_CONFIG)
-
-# MOBILE APP API: Get Markers (Cached, sub-millisecond)
+# MOBILE APP API: Get Markers (requires API key)
 @app.route('/api/markers', methods=['GET'])
 @require_api_key
 def get_markers():
-    return jsonify(CACHE_MARKERS)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, latitude, longitude, title, description FROM markers")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    markers = []
+    for row in rows:
+        markers.append({
+            "coordinate": {
+                "latitude": row["latitude"],
+                "longitude": row["longitude"]
+            },
+            "title": row["title"],
+            "description": row["description"]
+        })
+    return jsonify(markers)
 
-# High-Performance Performance Test / Health Check Endpoint
-@app.route('/api/health-check', methods=['GET'])
-def health_check():
-    return jsonify({
-        "status": "healthy",
-        "cached_keys_count": len(CACHE_API_KEYS),
-        "cached_markers_count": len(CACHE_MARKERS),
-        "timestamp": datetime.now().isoformat()
-    })
-
-# MOBILE APP WEBVIEW MAP: Renders a clean full-screen map verified by API key query param
-@app.route('/map', methods=['GET'])
-def render_webview_map():
-    api_key = request.args.get('key')
-    if not api_key or api_key not in CACHE_API_KEYS:
-        return "Unauthorized: Invalid or missing API Key", 403
-    return render_template('map_view.html', api_key=api_key)
-
-# Initialize Database and Load Cache on load
+# Initialize Database on load
 init_db()
-load_cache()
 
 if __name__ == '__main__':
     # Listen on all interfaces so the phone can connect
