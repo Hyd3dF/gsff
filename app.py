@@ -334,4 +334,4 @@ load_cache()
 
 if __name__ == '__main__':
     # Listen on all interfaces so the phone can connect
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=3000, debug=True)
