@@ -6,20 +6,23 @@
     <title>İz Admin Control Panel</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         :root {
-            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
-            --glass-bg: rgba(17, 24, 39, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --bg-color: #0b0d13;
+            --panel-bg: rgba(17, 20, 28, 0.75);
+            --sidebar-bg: #11141c;
+            --border-color: rgba(255, 255, 255, 0.06);
             --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.35);
             --primary-hover: #2563eb;
+            --primary-glow: rgba(59, 130, 246, 0.35);
             --accent-green: #10b981;
             --accent-red: #ef4444;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
             --font: 'Outfit', sans-serif;
-            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --glass-blur: blur(14px);
         }
 
         * {
@@ -30,98 +33,172 @@
 
         body {
             font-family: var(--font);
-            background: var(--bg-gradient);
+            background-color: var(--bg-color);
             color: var(--text-main);
-            min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar Navigation */
+        .app-sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            overflow-x: hidden;
-        }
-
-        header {
-            padding: 24px 40px;
-            border-bottom: 1px solid var(--glass-border);
-            background: rgba(17, 24, 39, 0.4);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            display: flex;
             justify-content: space-between;
-            align-items: center;
+            z-index: 2000;
         }
 
-        .logo-container h1 {
-            font-size: 26px;
+        .sidebar-brand {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-brand h1 {
+            font-size: 24px;
             font-weight: 800;
-            letter-spacing: -0.5px;
             background: linear-gradient(to right, #3b82f6, #60a5fa);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
-        .logo-container p {
-            font-size: 13px;
+        .sidebar-brand p {
+            font-size: 11px;
             color: var(--text-muted);
-            margin-top: 2px;
+            margin-top: 4px;
+            font-weight: 500;
         }
 
-        /* 2-Column Layout */
-        .dashboard-container {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 32px;
-            padding: 40px;
-            max-width: 1600px;
-            margin: 0 auto;
-            width: 100%;
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             flex: 1;
         }
 
-        @media (max-width: 1024px) {
-            .dashboard-container {
-                grid-template-columns: 1fr;
-                padding: 20px;
-                gap: 20px;
-            }
-        }
-
-        /* Glass Cards */
-        .glass-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: var(--card-shadow);
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .glass-card:hover {
-            box-shadow: 0 8px 32px 0 rgba(59, 130, 246, 0.05);
-        }
-
-        .card-header h2 {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-main);
+        .menu-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            border-bottom: 2px solid rgba(59, 130, 246, 0.2);
-            padding-bottom: 12px;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        /* Forms */
-        form {
+        .menu-item:hover {
+            color: var(--text-main);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .menu-item.active {
+            color: white;
+            background-color: var(--primary);
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 11px;
+            color: rgba(156, 163, 175, 0.4);
+        }
+
+        /* Content Area */
+        .app-content {
+            flex: 1;
+            height: 100%;
+            position: relative;
+            background-color: var(--bg-color);
+        }
+
+        .tab-pane {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .tab-pane.active {
+            display: flex;
+        }
+
+        /* Map Screen Layout */
+        .map-layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-container {
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        #web-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(17, 20, 28, 0.85);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            padding: 10px 16px;
+            border-radius: 10px;
+            z-index: 1000;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+
+        .locations-sidebar {
+            width: 380px;
+            background-color: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .locations-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .locations-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* Marker Adding Form */
+        .marker-form-container {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .marker-form {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 12px;
         }
 
         .full-width {
@@ -131,11 +208,11 @@
         .input-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         .input-group label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -143,145 +220,159 @@
         }
 
         .input-group input, .input-group textarea {
-            background: rgba(31, 41, 55, 0.5);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            padding: 12px 16px;
+            background-color: rgba(31, 41, 55, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
             color: var(--text-main);
             font-family: var(--font);
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.2s ease;
         }
 
         .input-group input:focus, .input-group textarea:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-            background: rgba(31, 41, 55, 0.8);
+            box-shadow: 0 0 0 2px var(--primary-glow);
         }
 
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        button.btn-primary {
+        .btn-submit {
             grid-column: span 2;
             background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 14px;
             color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
             font-family: var(--font);
             font-weight: 700;
-            font-size: 15px;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 14px var(--primary-glow);
+            box-shadow: 0 4px 12px var(--primary-glow);
         }
 
-        button.btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
         }
 
-        button.btn-primary:active {
-            transform: translateY(0);
+        /* Locations List */
+        .locations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        /* Items Lists */
-        .list-container {
+        .location-card {
+            background-color: rgba(31, 41, 55, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .location-card:hover {
+            background-color: rgba(31, 41, 55, 0.35);
+        }
+
+        .location-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            cursor: pointer;
+        }
+
+        .location-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .location-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .location-coords {
+            font-size: 10px;
+            color: rgba(156, 163, 175, 0.5);
+        }
+
+        .btn-delete {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-delete:hover {
+            background-color: var(--accent-red);
+            color: white;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+        }
+
+        /* API Keys Tab Layout */
+        .keys-layout {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            overflow-y: auto;
+        }
+
+        .keys-card {
+            background: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .keys-list-container {
             display: flex;
             flex-direction: column;
             gap: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 6px;
         }
 
-        /* Custom scrollbar */
-        .list-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .list-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .list-container::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-
-        .list-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.25);
-        }
-
-        .list-item {
-            background: rgba(31, 41, 55, 0.3);
-            border: 1px solid var(--glass-border);
+        .key-item {
+            background-color: rgba(31, 41, 55, 0.15);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
-            transition: background 0.2s ease;
         }
 
-        .list-item:hover {
-            background: rgba(31, 41, 55, 0.5);
-        }
-
-        .item-info {
+        .key-info {
             display: flex;
             flex-direction: column;
             gap: 4px;
+            flex: 1;
         }
 
-        .item-title {
-            font-weight: 600;
-            font-size: 15px;
-            color: var(--text-main);
-        }
-
-        .item-desc {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-
-        .item-meta {
-            font-size: 11px;
-            color: rgba(156, 163, 175, 0.6);
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn-delete {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: var(--font);
-            font-weight: 600;
-            font-size: 13px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-delete:hover {
-            background: var(--accent-red);
-            color: white;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-        }
-
-        /* API Key Specifics */
-        .key-display {
-            background: #1f2937;
+        .key-text {
+            background-color: rgba(0, 0, 0, 0.3);
             border: 1px dashed var(--primary);
             border-radius: 8px;
-            padding: 10px 14px;
+            padding: 10px;
             font-family: monospace;
             font-size: 13px;
             color: #60a5fa;
@@ -290,22 +381,44 @@
             margin-top: 4px;
         }
 
+        /* Leaflet popups customization in Dark Mode */
+        .leaflet-popup-content-wrapper {
+            background: rgba(17, 20, 28, 0.95);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 10px;
+            padding: 2px;
+        }
+        .leaflet-popup-tip {
+            background: rgba(17, 20, 28, 0.95);
+        }
+        .leaflet-popup-content h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .leaflet-popup-content p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Toast system */
         .toast {
             position: fixed;
             bottom: 30px;
             right: 30px;
-            background: var(--accent-green);
+            background-color: var(--accent-green);
             color: white;
             padding: 14px 24px;
-            border-radius: 10px;
-            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
             font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
             opacity: 0;
             transform: translateY(20px);
             transition: all 0.3s ease;
             z-index: 10000;
         }
-
         .toast.show {
             opacity: 1;
             transform: translateY(0);
@@ -314,115 +427,256 @@
 </head>
 <body>
 
-    <header>
-        <div class="logo-container">
-            <h1>📍 İz Admin Panel</h1>
-            <p>Simple & Lightweight Mobile Map Server</p>
+    <!-- Sidebar -->
+    <div class="app-sidebar">
+        <div>
+            <div class="sidebar-brand">
+                <h1>📍 İz Console</h1>
+                <p>Real-Time Map Control Server</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="menu-item active" onclick="switchTab('map-tab', this)">
+                    <span>📍</span> Harita & Konumlar
+                </li>
+                <li class="menu-item" onclick="switchTab('keys-tab', this)">
+                    <span>🔑</span> API Anahtarları
+                </li>
+            </ul>
         </div>
-    </header>
-
-    <div class="dashboard-container">
-        <!-- Marker Column -->
-        <div class="glass-card">
-            <div class="card-header">
-                <h2>📍 Marker Management</h2>
-            </div>
-            
-            <form id="marker-form" onsubmit="addMarker(event)">
-                <div class="input-group">
-                    <label for="latitude">Latitude</label>
-                    <input type="number" id="latitude" step="any" placeholder="e.g. 41.0082" required>
-                </div>
-                <div class="input-group">
-                    <label for="longitude">Longitude</label>
-                    <input type="number" id="longitude" step="any" placeholder="e.g. 28.9784" required>
-                </div>
-                <div class="input-group full-width">
-                    <label for="title">Location Title</label>
-                    <input type="text" id="title" placeholder="e.g. Istanbul" required>
-                </div>
-                <div class="input-group full-width">
-                    <label for="description">Description</label>
-                    <textarea id="description" placeholder="Describe this place..."></textarea>
-                </div>
-                <button type="submit" class="btn-primary">Add Location Marker</button>
-            </form>
-
-            <div class="list-container" id="markers-list">
-                <!-- Loaded dynamically -->
-            </div>
-        </div>
-
-        <!-- API Key Column -->
-        <div class="glass-card">
-            <div class="card-header">
-                <h2>🔑 API Key Manager</h2>
-            </div>
-
-            <form id="key-form" onsubmit="generateKey(event)">
-                <div class="input-group full-width">
-                    <label for="key-desc">Key Description / Client Name</label>
-                    <input type="text" id="key-desc" placeholder="e.g. iOS Client, Testing" required>
-                </div>
-                <button type="submit" class="btn-primary">Generate API Key</button>
-            </form>
-
-            <div class="list-container" id="keys-list">
-                <!-- Loaded dynamically -->
-            </div>
+        <div class="sidebar-footer">
+            İz Map Server v2.0
         </div>
     </div>
 
-    <div class="toast" id="toast">Success!</div>
+    <!-- Main Content -->
+    <div class="app-content">
 
+        <!-- TAB 1: Map & Locations -->
+        <div id="map-tab" class="tab-pane active">
+            <div class="map-layout">
+                <div class="map-container">
+                    <div class="map-instructions">💡 Haritaya tıklayarak enlem/boylam bilgilerini otomatik doldurabilirsiniz.</div>
+                    <div id="web-map"></div>
+                </div>
+                <div class="locations-sidebar">
+                    <div class="locations-header">
+                        <h2>📍 Konum Yönetimi</h2>
+                    </div>
+                    <div class="marker-form-container">
+                        <form id="marker-form" class="marker-form" onsubmit="addMarker(event)">
+                            <div class="input-group">
+                                <label for="latitude">Enlem (Lat)</label>
+                                <input type="number" id="latitude" step="any" placeholder="Enlem" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="longitude">Boylam (Lng)</label>
+                                <input type="number" id="longitude" step="any" placeholder="Boylam" required>
+                            </div>
+                            <div class="input-group full-width">
+                                <label for="title">Konum Başlığı</label>
+                                <input type="text" id="title" placeholder="Örn: Ev, Ofis" required>
+                            </div>
+                            <div class="input-group full-width">
+                                <label for="description">Açıklama</label>
+                                <textarea id="description" placeholder="Kısa bir açıklama girin..."></textarea>
+                            </div>
+                            <button type="submit" class="btn-submit">Haritaya Ekle</button>
+                        </form>
+                    </div>
+                    <div class="locations-list" id="locations-list">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: API Keys -->
+        <div id="keys-tab" class="tab-pane">
+            <div class="keys-layout">
+                <div class="keys-card">
+                    <div class="locations-header" style="padding:0; border:none;">
+                        <h2 style="font-size: 20px;">🔑 Yeni API Anahtarı Oluştur</h2>
+                        <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Mobil uygulamanın haritayı çekebilmesi için gerekli yetkilendirme anahtarları.</p>
+                    </div>
+                    <form id="key-form" style="display:flex; flex-direction:column; gap:14px;" onsubmit="generateKey(event)">
+                        <div class="input-group">
+                            <label for="key-desc">Açıklama / Cihaz Adı</label>
+                            <input type="text" id="key-desc" placeholder="Örn: Ahmet iPhone, Test Cihazı" required style="width:100%;">
+                        </div>
+                        <button type="submit" class="btn-submit" style="width:fit-content; padding: 12px 30px;">Anahtar Üret</button>
+                    </form>
+                </div>
+
+                <div class="keys-card">
+                    <div class="locations-header" style="padding:0; border:none;">
+                        <h2 style="font-size: 20px;">📋 Aktif API Anahtarları</h2>
+                    </div>
+                    <div class="keys-list-container" id="keys-list">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">Başarılı!</div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
     <script>
-        // Notification Helper
+        let map;
+        let activeMarkers = {};
+        let clickTempMarker = null;
+
+        // Switch Sidebar Tabs
+        function switchTab(tabId, menuItem) {
+            document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            menuItem.classList.add('active');
+
+            if (tabId === 'map-tab' && map) {
+                // Invalidate leaflet size if tab was hidden during render
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
+            }
+        }
+
+        // Notification helper
         function showToast(message, isSuccess = true) {
             const toast = document.getElementById('toast');
             toast.innerText = message;
-            toast.style.background = isSuccess ? 'var(--accent-green)' : 'var(--accent-red)';
-            toast.style.boxShadow = isSuccess ? '0 8px 16px rgba(16, 185, 129, 0.3)' : '0 8px 16px rgba(239, 68, 68, 0.3)';
+            toast.style.backgroundColor = isSuccess ? 'var(--accent-green)' : 'var(--accent-red)';
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
-            }, 3000);
+            }, 2500);
         }
 
-        // Fetch Markers
+        // Initialize Web Leaflet Map with Dark Tiles
+        function initMap() {
+            map = L.map('web-map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([39.9334, 32.8597], 6);
+
+            // Sleek CartoDB Dark Matter tile layer
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20,
+                subdomains: 'abcd'
+            }).addTo(map);
+
+            // Add standard Zoom Control to bottom left
+            L.control.zoom({
+                position: 'bottomleft'
+            }).addTo(map);
+
+            // Handle click on map to fill form coordinates
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                document.getElementById('latitude').value = lat.toFixed(6);
+                document.getElementById('longitude').value = lng.toFixed(6);
+
+                // Add or update temporary marker to show where user clicked
+                if (clickTempMarker) {
+                    clickTempMarker.setLatLng(e.latlng);
+                } else {
+                    const tempIcon = L.divIcon({
+                        className: 'temp-pin',
+                        html: '<div style="background-color:#3b82f6; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 8px #3b82f6;"></div>',
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    });
+                    clickTempMarker = L.marker(e.latlng, { icon: tempIcon }).addTo(map);
+                }
+            });
+
+            // Initial load of markers
+            loadMarkers();
+            // Fast live updates (poll every 2 seconds)
+            setInterval(loadMarkers, 2000);
+        }
+
+        // Fetch and draw Markers with delta diffing
         function loadMarkers() {
             fetch('/admin/markers')
                 .then(res => res.json())
                 .then(markers => {
-                    const list = document.getElementById('markers-list');
+                    const list = document.getElementById('locations-list');
+                    
+                    // Render HTML list
                     list.innerHTML = '';
                     if (markers.length === 0) {
-                        list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">No markers saved yet.</div>';
-                        return;
+                        list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px; font-size:13px;">Kayıtlı konum bulunmuyor.</div>';
                     }
+
+                    const currentKeys = new Set();
+
                     markers.forEach(m => {
-                        const item = document.createElement('div');
-                        item.className = 'list-item';
-                        item.innerHTML = `
-                            <div class="item-info">
-                                <div class="item-title">${escapeHtml(m.title)}</div>
-                                <div class="item-desc">${escapeHtml(m.description || 'No description')}</div>
-                                <div class="item-meta">
-                                    <span>Lat: ${m.latitude.toFixed(4)}</span>
-                                    <span>Lng: ${m.longitude.toFixed(4)}</span>
-                                </div>
+                        const key = `${m.latitude.toFixed(6)}_${m.longitude.toFixed(6)}`;
+                        currentKeys.add(key);
+
+                        // 1. Add to HTML List
+                        const card = document.createElement('div');
+                        card.className = 'location-card';
+                        card.innerHTML = `
+                            <div class="location-info" onclick="zoomToMarker(${m.latitude}, ${m.longitude})">
+                                <div class="location-title">${escapeHtml(m.title)}</div>
+                                <div class="location-desc">${escapeHtml(m.description || 'Açıklama yok')}</div>
+                                <div class="location-coords">Enl: ${m.latitude.toFixed(4)}, Boy: ${m.longitude.toFixed(4)}</div>
                             </div>
-                            <button class="btn-delete" onclick="deleteMarker(${m.id})">Delete</button>
+                            <button class="btn-delete" onclick="deleteMarker(${m.id})">Sil</button>
                         `;
-                        list.appendChild(item);
+                        list.appendChild(card);
+
+                        // 2. Sync to Map
+                        if (!activeMarkers[key]) {
+                            const redIcon = L.divIcon({
+                                className: 'map-pin',
+                                html: '<div style="background-color:#ef4444; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px #ef4444;"></div>',
+                                iconSize: [14, 14],
+                                iconAnchor: [7, 7]
+                            });
+
+                            const leafMarker = L.marker([m.latitude, m.longitude], { icon: redIcon })
+                                .bindPopup(`<h3>${escapeHtml(m.title)}</h3><p>${escapeHtml(m.description || '')}</p>`)
+                                .addTo(map);
+
+                            activeMarkers[key] = {
+                                id: m.id,
+                                marker: leafMarker
+                            };
+                        }
+                    });
+
+                    // Remove deleted markers from Map
+                    Object.keys(activeMarkers).forEach(key => {
+                        if (!currentKeys.has(key)) {
+                            map.removeLayer(activeMarkers[key].marker);
+                            delete activeMarkers[key];
+                        }
                     });
                 })
                 .catch(err => {
-                    console.error(err);
-                    showToast('Failed to load markers', false);
+                    console.error("Error loading markers:", err);
                 });
         }
 
-        // Add Marker
+        // Pan to Marker on click from sidebar
+        function zoomToMarker(lat, lng) {
+            if (map) {
+                map.setView([lat, lng], 13);
+            }
+        }
+
+        // Add Marker Form Action
         function addMarker(event) {
             event.preventDefault();
             const data = {
@@ -440,27 +694,31 @@
             .then(res => res.json())
             .then(res => {
                 if (res.success) {
-                    showToast('Marker added successfully!');
+                    showToast('Konum başarıyla eklendi!');
                     document.getElementById('marker-form').reset();
+                    if (clickTempMarker) {
+                        map.removeLayer(clickTempMarker);
+                        clickTempMarker = null;
+                    }
                     loadMarkers();
                 } else {
-                    showToast(res.error || 'Failed to add marker', false);
+                    showToast(res.error || 'Hata oluştu', false);
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Failed to add marker', false);
+                showToast('Sunucu hatası', false);
             });
         }
 
-        // Delete Marker
+        // Delete Marker Action
         function deleteMarker(id) {
-            if (!confirm('Are you sure you want to delete this marker?')) return;
+            if (!confirm('Bu konumu silmek istediğinize emin misiniz?')) return;
             fetch(`/admin/markers/${id}`, { method: 'DELETE' })
                 .then(res => res.json())
                 .then(res => {
                     if (res.success) {
-                        showToast('Marker deleted');
+                        showToast('Konum silindi');
                         loadMarkers();
                     }
                 });
@@ -474,30 +732,30 @@
                     const list = document.getElementById('keys-list');
                     list.innerHTML = '';
                     if (keys.length === 0) {
-                        list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px;">No API keys generated.</div>';
+                        list.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 20px; font-size:13px;">Oluşturulmuş API anahtarı bulunmuyor.</div>';
                         return;
                     }
                     keys.forEach(k => {
                         const item = document.createElement('div');
-                        item.className = 'list-item';
+                        item.className = 'key-item';
                         item.innerHTML = `
-                            <div class="item-info" style="flex: 1;">
-                                <div class="item-title">${escapeHtml(k.description)}</div>
-                                <div class="key-display">${escapeHtml(k.key)}</div>
-                                <div class="item-meta">Created: ${new Date(k.created_at).toLocaleString()}</div>
+                            <div class="key-info">
+                                <div style="font-weight:600; font-size:14px;">${escapeHtml(k.description)}</div>
+                                <div class="key-text">${escapeHtml(k.key)}</div>
+                                <div style="font-size:11px; color:rgba(156, 163, 175, 0.4); margin-top:6px;">Oluşturulma: ${new Date(k.created_at).toLocaleString()}</div>
                             </div>
-                            <button class="btn-delete" onclick="deleteKey('${k.key}')">Revoke</button>
+                            <button class="btn-delete" onclick="deleteKey('${k.key}')">İptal Et</button>
                         `;
                         list.appendChild(item);
                     });
                 })
                 .catch(err => {
                     console.error(err);
-                    showToast('Failed to load API keys', false);
+                    showToast('API anahtarları yüklenemedi', false);
                 });
         }
 
-        // Generate API Key
+        // Generate API Key Action
         function generateKey(event) {
             event.preventDefault();
             const desc = document.getElementById('key-desc').value;
@@ -510,25 +768,25 @@
             .then(res => res.json())
             .then(res => {
                 if (res.success) {
-                    showToast('New API key generated!');
+                    showToast('Yeni API anahtarı üretildi!');
                     document.getElementById('key-form').reset();
                     loadKeys();
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Failed to generate key', false);
+                showToast('Anahtar üretilemedi', false);
             });
         }
 
-        // Delete API Key
+        // Revoke API Key Action
         function deleteKey(key) {
-            if (!confirm('Are you sure you want to revoke this API key? Client devices using this key will immediately lose access.')) return;
+            if (!confirm('Bu API anahtarını iptal etmek istediğinize emin misiniz? Bu anahtarı kullanan cihazlar haritaya erişemez.')) return;
             fetch(`/admin/api-keys/${key}`, { method: 'DELETE' })
                 .then(res => res.json())
                 .then(res => {
                     if (res.success) {
-                        showToast('API Key revoked');
+                        showToast('API Anahtarı iptal edildi');
                         loadKeys();
                     }
                 });
@@ -545,9 +803,8 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // Initial Load
         window.onload = function() {
-            loadMarkers();
+            initMap();
             loadKeys();
         };
     </script>

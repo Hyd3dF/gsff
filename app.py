@@ -90,23 +90,6 @@ def require_api_key(f):
 def index():
     return render_template('index.html')
 
-@app.route('/map')
-def map_view():
-    api_key = request.args.get('key')
-    if not api_key:
-        return "Missing API Key", 400
-    
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT 1 FROM api_keys WHERE key = ?", (api_key,))
-    key_exists = cursor.fetchone()
-    conn.close()
-    
-    if not key_exists:
-        return "Invalid API Key", 403
-        
-    return render_template('map_view.html', api_key=api_key)
-
 
 # ADMIN API: Get all markers
 @app.route('/admin/markers', methods=['GET'])
