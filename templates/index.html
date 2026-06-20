@@ -40,7 +40,7 @@
 
         /* Sidebar Container */
         .sidebar {
-            width: 420px;
+            width: 440px;
             background-color: var(--panel);
             border-right: 1px solid var(--border);
             display: flex;
@@ -56,7 +56,7 @@
         }
 
         .header h1 {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 800;
             color: var(--primary);
             letter-spacing: -0.5px;
@@ -95,7 +95,7 @@
 
         /* Section Styling */
         .section-title {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -108,6 +108,7 @@
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 16px;
+            margin-bottom: 8px;
         }
 
         /* Form Controls */
@@ -125,7 +126,7 @@
 
         .form-control {
             width: 100%;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1px solid rgba(0, 0, 0, 0.1);
             border-radius: 10px;
             font-family: var(--font);
@@ -146,20 +147,33 @@
             gap: 12px;
         }
 
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .checkbox-row label {
+            margin-bottom: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 12px 20px;
+            padding: 10px 16px;
             border-radius: 12px;
             font-family: var(--font);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
             border: none;
             width: 100%;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn-primary {
@@ -178,6 +192,23 @@
 
         .btn-secondary:hover {
             background-color: #e5e5ea;
+        }
+
+        .btn-save-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-family: var(--font);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-save-sm:hover {
+            background-color: var(--primary-hover);
         }
 
         /* Key Generator styling */
@@ -217,7 +248,7 @@
         .list-container {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             max-height: 200px;
             overflow-y: auto;
         }
@@ -239,7 +270,7 @@
         }
 
         .list-item-details h4 {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text-main);
         }
@@ -264,21 +295,91 @@
             background-color: rgba(255, 59, 48, 0.08);
         }
 
-        /* Marker Tip Overlay */
+        /* Map Tip Overlay */
         .map-tip {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            bottom: 20px;
+            left: 20px;
             background-color: rgba(255, 255, 255, 0.95);
-            padding: 12px 18px;
-            border-radius: 12px;
+            padding: 10px 16px;
+            border-radius: 10px;
             box-shadow: var(--shadow);
             z-index: 1000;
             border: 1px solid var(--border);
             font-weight: 600;
-            font-size: 13px;
-            color: var(--primary);
+            font-size: 12px;
+            color: var(--text-muted);
             pointer-events: none;
+        }
+
+        /* Dynamic Map Modes Styling */
+        .mode-editor-item {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 14px;
+            margin-bottom: 14px;
+        }
+
+        .mode-editor-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+
+        .mode-title {
+            font-size: 13px;
+            font-weight: 750;
+            color: var(--primary);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mode-badge {
+            font-size: 10px;
+            background-color: rgba(0, 122, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        /* Map Layer Selection Overlay */
+        .map-layer-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 6px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 6px;
+        }
+
+        .map-ctrl-btn {
+            border: none;
+            background: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: var(--font);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+
+        .map-ctrl-btn:hover {
+            background-color: #f2f2f7;
+            color: var(--text-main);
+        }
+
+        .map-ctrl-btn.active {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
         }
     </style>
 </head>
@@ -287,7 +388,7 @@
     <div class="sidebar">
         <div class="header">
             <h1>📍 İz Map Control Center</h1>
-            <p>Remote Map Management & API Keys</p>
+            <p>Remote Map Management & Caching API</p>
         </div>
 
         <div class="content">
@@ -316,6 +417,16 @@
                         </div>
                         <button type="submit" class="btn btn-primary" id="save-marker-btn" disabled>Save Location</button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Map Buttons Config Panel (Dynamic Mobile Buttons) -->
+            <div>
+                <div class="section-title">Dynamic Mobile Buttons</div>
+                <div class="card">
+                    <div id="map-modes-container">
+                        <!-- Loaded dynamically -->
+                    </div>
                 </div>
             </div>
 
@@ -354,6 +465,13 @@
 
     <!-- Map View -->
     <div class="map-container">
+        <!-- Style Selector Controls Floating on Map -->
+        <div class="map-layer-selector">
+            <button class="map-ctrl-btn active" id="btn-2d" onclick="setMapStyle('2d')">2D Harita</button>
+            <button class="map-ctrl-btn" id="btn-satellite" onclick="setMapStyle('satellite')">Detaylı Uydu</button>
+            <button class="map-ctrl-btn" id="btn-3d" onclick="setMapStyle('3d')">3D Arazi</button>
+        </div>
+        
         <div class="map-tip">💡 Click anywhere on the map to select coordinates</div>
         <div id="map"></div>
     </div>
@@ -365,17 +483,42 @@
         let selectedLatLng = null;
         let mapMarkers = [];
 
+        // Define multiple map tile layers
+        const layers = {
+            '2d': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO'
+            }),
+            'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri'
+            }),
+            '3d': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenTopoMap'
+            })
+        };
+
+        let currentLayer = '2d';
+
+        // Set map styles dynamically (2D, Satellite, 3D Shaded Terrain)
+        function setMapStyle(style) {
+            if (currentLayer === style) return;
+            
+            map.removeLayer(layers[currentLayer]);
+            layers[style].addTo(map);
+            
+            // Toggle active styling
+            document.querySelectorAll('.map-ctrl-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${style}`).classList.add('active');
+            
+            currentLayer = style;
+        }
+
         // Initialize Leaflet Map
         function initMap() {
             // Default center around Turkey
             map = L.map('map').setView([39.9334, 32.8597], 6);
 
-            // Add clean tiles (CartoDB Positron for modern white aesthetic)
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 20
-            }).addTo(map);
+            // Add default 2D layer
+            layers['2d'].addTo(map);
 
             // Click listener to select coordinates
             map.on('click', function(e) {
@@ -492,6 +635,89 @@
             }
         }
 
+        // Load dynamic Map Modes from Server and render edit forms
+        function loadMapModes() {
+            fetch('/admin/map-modes')
+            .then(res => res.json())
+            .then(modes => {
+                const container = document.getElementById('map-modes-container');
+                container.innerHTML = '';
+
+                modes.forEach(mode => {
+                    const item = document.createElement('div');
+                    item.className = 'mode-editor-item';
+                    
+                    const isHybrid = mode.map_type === 'hybrid';
+                    const isBuildings = mode.buildings === 1 || mode.buildings === true;
+
+                    item.innerHTML = `
+                        <div class="mode-title">
+                            <span>Style: <b>${mode.id.toUpperCase()}</b></span>
+                            <span class="mode-badge">${mode.map_type}</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Menu Button Label</label>
+                            <input type="text" id="label-${mode.id}" class="form-control" value="${mode.label}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1.2;">
+                                <label>Map Type</label>
+                                <select id="type-${mode.id}" class="form-control">
+                                    <option value="standard" ${!isHybrid ? 'selected' : ''}>Standard</option>
+                                    <option value="hybrid" ${isHybrid ? 'selected' : ''}>Hybrid/Satellite</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 0.8;">
+                                <label>Pitch (°)</label>
+                                <input type="number" id="pitch-${mode.id}" class="form-control" min="0" max="90" value="${mode.pitch}">
+                            </div>
+                        </div>
+                        <div class="form-row" style="align-items: center; justify-content: space-between; margin-top: 4px;">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="buildings-${mode.id}" ${isBuildings ? 'checked' : ''}>
+                                <label for="buildings-${mode.id}" style="font-size: 12px; font-weight:600;">3D Buildings</label>
+                            </div>
+                            <button class="btn-save-sm" onclick="saveMapMode('${mode.id}')">Save changes</button>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            });
+        }
+
+        // Save Map Mode changes back to Python Server
+        function saveMapMode(id) {
+            const label = document.getElementById(`label-${id}`).value;
+            const map_type = document.getElementById(`type-${id}`).value;
+            const pitch = parseInt(document.getElementById(`pitch-${id}`).value) || 0;
+            const buildings = document.getElementById(`buildings-${id}`).checked ? 1 : 0;
+
+            const payload = {
+                label: label,
+                map_type: map_type,
+                pitch: pitch,
+                buildings: buildings
+            };
+
+            fetch(`/admin/map-modes/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Map Mode "${id.toUpperCase()}" successfully updated & cached!`);
+                    loadMapModes();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err.message);
+            });
+        }
+
         // Generate API Key
         function generateKey() {
             const desc = document.getElementById('key-desc').value || 'Mobile Client';
@@ -562,6 +788,7 @@
             initMap();
             loadMarkers();
             loadKeys();
+            loadMapModes();
         };
     </script>
 </body>
