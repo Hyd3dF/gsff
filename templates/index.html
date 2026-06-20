@@ -433,6 +433,16 @@
             opacity: 1;
             transform: translateY(0);
         }
+        /* Prevents gray lines between Leaflet map tiles */
+        .leaflet-container img.leaflet-tile {
+            mix-blend-mode: normal;
+        }
+        .leaflet-tile-container img {
+            outline: 1px solid transparent;
+            box-shadow: 0 0 1px transparent;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
     </style>
 </head>
 <body>
@@ -599,11 +609,23 @@
                 if (clickTempMarker) {
                     clickTempMarker.setLatLng(wrapped);
                 } else {
+                    const tempPinSvg = `
+                    <svg width="24" height="29" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14 0C6.27 0 0 6.27 0 14C0 22.96 12.18 32.27 13.27 33.08C13.48 33.24 13.74 33.32 14 33.32C14.26 33.32 14.52 33.24 14.73 33.08C15.82 32.27 28 22.96 28 14C28 6.27 21.73 0 14 0ZM14 19.25C11.1 19.25 8.75 16.9 8.75 14C8.75 11.1 11.1 8.75 14 8.75C16.9 8.75 19.25 11.1 19.25 14C19.25 16.9 16.9 19.25 14 19.25Z" fill="url(#tempPinGrad)"/>
+                        <circle cx="14" cy="14" r="3.5" fill="#FFFFFF"/>
+                        <defs>
+                            <linearGradient id="tempPinGrad" x1="0" y1="0" x2="28" y2="34" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#3b82f6"/>
+                                <stop offset="100%" stop-color="#1d4ed8"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    `;
                     const tempIcon = L.divIcon({
-                        className: 'temp-pin',
-                        html: '<div style="background-color:#3b82f6; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 8px #3b82f6;"></div>',
-                        iconSize: [12, 12],
-                        iconAnchor: [6, 6]
+                        className: 'map-pin-temp',
+                        html: tempPinSvg,
+                        iconSize: [24, 29],
+                        iconAnchor: [12, 29]
                     });
                     clickTempMarker = L.marker(wrapped, { icon: tempIcon }).addTo(map);
                 }
@@ -649,11 +671,24 @@
 
                         // 2. Sync to Map
                         if (!activeMarkers[key]) {
+                            const redPinSvg = `
+                            <svg width="28" height="34" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M14 0C6.27 0 0 6.27 0 14C0 22.96 12.18 32.27 13.27 33.08C13.48 33.24 13.74 33.32 14 33.32C14.26 33.32 14.52 33.24 14.73 33.08C15.82 32.27 28 22.96 28 14C28 6.27 21.73 0 14 0ZM14 19.25C11.1 19.25 8.75 16.9 8.75 14C8.75 11.1 11.1 8.75 14 8.75C16.9 8.75 19.25 11.1 19.25 14C19.25 16.9 16.9 19.25 14 19.25Z" fill="url(#pinGrad)"/>
+                                <circle cx="14" cy="14" r="3.5" fill="#FFFFFF"/>
+                                <defs>
+                                    <linearGradient id="pinGrad" x1="0" y1="0" x2="28" y2="34" gradientUnits="userSpaceOnUse">
+                                        <stop offset="0%" stop-color="#ef4444"/>
+                                        <stop offset="100%" stop-color="#b91c1c"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            `;
                             const redIcon = L.divIcon({
-                                className: 'map-pin',
-                                html: '<div style="background-color:#ef4444; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px #ef4444;"></div>',
-                                iconSize: [14, 14],
-                                iconAnchor: [7, 7]
+                                className: 'map-pin-custom',
+                                html: redPinSvg,
+                                iconSize: [28, 34],
+                                iconAnchor: [14, 34],
+                                popupAnchor: [0, -30]
                             });
 
                             const leafMarker = L.marker([m.latitude, m.longitude], { icon: redIcon })
