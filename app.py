@@ -83,6 +83,16 @@ def init_db():
         )
         print(f"--> Initialized database. Default API Key: {default_key}")
 
+    # Register the user's specific API key if not exists
+    user_key = "iz_a26695099e844d5a84c7b8833ce9b5"
+    cursor.execute("SELECT 1 FROM api_keys WHERE key = ?", (user_key,))
+    if not cursor.fetchone():
+        cursor.execute(
+            "INSERT INTO api_keys (key, description, created_at) VALUES (?, ?, ?)",
+            (user_key, "Saha Cihazı A", datetime.now().isoformat())
+        )
+        print(f"--> Auto-registered user API key: {user_key}")
+
     conn.commit()
     conn.close()
 
