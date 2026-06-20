@@ -47,14 +47,16 @@ def init_db():
         )
     ''')
     
-    # Create map_modes configuration table
+    # Create map_buttons configuration table
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS map_modes (
+        CREATE TABLE IF NOT EXISTS map_buttons (
             id TEXT PRIMARY KEY,
             label TEXT NOT NULL,
-            map_type TEXT NOT NULL,
-            pitch INTEGER NOT NULL,
-            buildings INTEGER NOT NULL
+            action_type TEXT NOT NULL,  -- 'style' or 'function'
+            map_type TEXT NOT NULL,     -- 'standard' or 'hybrid'
+            pitch INTEGER NOT NULL,     -- 0 to 90
+            buildings INTEGER NOT NULL, -- 0 or 1
+            enabled INTEGER NOT NULL    -- 0 or 1
         )
     ''')
     
@@ -81,17 +83,18 @@ def init_db():
         )
         print(f"--> Initialized database. Default API Key: {default_key}")
 
-    # Pre-populate map modes if empty
-    cursor.execute("SELECT COUNT(*) FROM map_modes")
+    # Pre-populate map buttons if empty
+    cursor.execute("SELECT COUNT(*) FROM map_buttons")
     if cursor.fetchone()[0] == 0:
-        default_modes = [
-            ('2d', '2D Harita', 'standard', 0, 0),
-            ('3d', '3D Görünüm', 'standard', 65, 1),
-            ('detail', 'Detaylı Uydu', 'hybrid', 45, 1)
+        default_buttons = [
+            ('2d', '2D Harita', 'style', 'standard', 0, 0, 1),
+            ('3d', '3D Görünüm', 'style', 'standard', 65, 1, 1),
+            ('detail', 'Detaylı Uydu', 'style', 'hybrid', 45, 1, 1),
+            ('locate', 'Konumumu Bul', 'function', 'standard', 0, 0, 1)
         ]
         cursor.executemany(
-            "INSERT INTO map_modes (id, label, map_type, pitch, buildings) VALUES (?, ?, ?, ?, ?)",
-            default_modes
+            "INSERT INTO map_buttons (id, label, action_type, map_type, pitch, buildings, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            default_buttons
         )
 
     conn.commit()
@@ -123,14 +126,15 @@ def load_cache():
             "description": row["description"]
         })
         
-    # 3. Load map modes config
-    cursor.execute("SELECT id, label, map_type, pitch, buildings FROM map_modes")
-    modes_rows = cursor.fetchall()
-    modes_list = []
-    for row in modes_rows:
-        modes_list.append({
+    # 3. Load map buttons config (only enabled ones for CACHE_CONFIG)
+    cursor.execute("SELECT id, label, action_type, map_type, pitch, buildings FROM map_buttons WHERE enabled = 1")
+    buttons_rows = cursor.fetchall()
+    buttons_list = []
+    for row in buttons_rows:
+        buttons_list.append({
             "id": row["id"],
             "label": row["label"],
+            "action_type": row["action_type"],
             "map_type": row["map_type"],
             "pitch": row["pitch"],
             "buildings": bool(row["buildings"])
@@ -150,7 +154,7 @@ def load_cache():
                 "longitudeDelta": 10,
             },
             "default_view_mode": "2d",
-            "map_modes": modes_list
+            "map_buttons": buttons_list
         }
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Cache successfully updated in memory.")
 
@@ -176,15 +180,12 @@ def index():
 # ADMIN API: Get all markers
 @app.route('/admin/markers', methods=['GET'])
 def admin_get_markers():
-    # Return from cache to ensure speed on dashboard load
-    with CACHE_LOCK:
-        # Re-format slightly for table id display
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM markers ORDER BY id DESC")
-        rows = cursor.fetchall()
-        conn.close()
-        return jsonify([dict(row) for row in rows])
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM markers ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in rows])
 
 # ADMIN API: Add marker
 @app.route('/admin/markers', methods=['POST'])
@@ -268,34 +269,84 @@ def admin_delete_key(key):
     load_cache()
     return jsonify({"success": True})
 
-# ADMIN API: Get Map Modes
-@app.route('/admin/map-modes', methods=['GET'])
-def admin_get_map_modes():
+# ADMIN API: Get Map Buttons
+@app.route('/admin/map-buttons', methods=['GET'])
+def admin_get_map_buttons():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM map_modes")
+    cursor.execute("SELECT * FROM map_buttons")
     rows = cursor.fetchall()
     conn.close()
     return jsonify([dict(row) for row in rows])
 
-# ADMIN API: Update Map Mode (Dynamic button labels/configs)
-@app.route('/admin/map-modes/<string:mode_id>', methods=['POST'])
-def admin_update_map_mode(mode_id):
+# ADMIN API: Update Map Button
+@app.route('/admin/map-buttons/<string:button_id>', methods=['POST'])
+def admin_update_map_button(button_id):
     data = request.json
     label = data.get('label')
+    action_type = data.get('action_type')
     map_type = data.get('map_type')
     pitch = data.get('pitch')
     buildings = data.get('buildings')
+    enabled = data.get('enabled')
     
-    if label is None or map_type is None or pitch is None or buildings is None:
-        return jsonify({"error": "All fields (label, map_type, pitch, buildings) are required"}), 400
+    if label is None or action_type is None or map_type is None or pitch is None or buildings is None or enabled is None:
+        return jsonify({"error": "All fields are required"}), 400
         
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE map_modes SET label = ?, map_type = ?, pitch = ?, buildings = ? WHERE id = ?",
-        (label, map_type, int(pitch), int(buildings), mode_id)
+        "UPDATE map_buttons SET label = ?, action_type = ?, map_type = ?, pitch = ?, buildings = ?, enabled = ? WHERE id = ?",
+        (label, action_type, map_type, int(pitch), int(buildings), int(enabled), button_id)
     )
+    conn.commit()
+    conn.close()
+    
+    # Sync cache
+    load_cache()
+    return jsonify({"success": True})
+
+# ADMIN API: Add Custom Map Button
+@app.route('/admin/map-buttons', methods=['POST'])
+def admin_add_map_button():
+    data = request.json
+    label = data.get('label')
+    action_type = data.get('action_type', 'style')
+    map_type = data.get('map_type', 'standard')
+    pitch = data.get('pitch', 0)
+    buildings = data.get('buildings', 0)
+    enabled = data.get('enabled', 1)
+    
+    if not label:
+        return jsonify({"error": "Label is required"}), 400
+        
+    # Generate unique ID
+    button_id = "btn_" + uuid.uuid4().hex[:8]
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO map_buttons (id, label, action_type, map_type, pitch, buildings, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (button_id, label, action_type, map_type, int(pitch), int(buildings), int(enabled))
+    )
+    conn.commit()
+    conn.close()
+    
+    # Sync cache
+    load_cache()
+    return jsonify({"success": True, "id": button_id})
+
+# ADMIN API: Delete Custom Map Button
+@app.route('/admin/map-buttons/<string:button_id>', methods=['DELETE'])
+def admin_delete_map_button(button_id):
+    # Don't delete system default buttons, just disable them
+    system_buttons = ['2d', '3d', 'detail', 'locate']
+    conn = get_db()
+    cursor = conn.cursor()
+    if button_id in system_buttons:
+        cursor.execute("UPDATE map_buttons SET enabled = 0 WHERE id = ?", (button_id,))
+    else:
+        cursor.execute("DELETE FROM map_buttons WHERE id = ?", (button_id,))
     conn.commit()
     conn.close()
     
@@ -308,14 +359,12 @@ def admin_update_map_mode(mode_id):
 @app.route('/api/config', methods=['GET'])
 @require_api_key
 def get_config():
-    # Return directly from in-memory cache
     return jsonify(CACHE_CONFIG)
 
 # MOBILE APP API: Get Markers (Cached, sub-millisecond)
 @app.route('/api/markers', methods=['GET'])
 @require_api_key
 def get_markers():
-    # Return directly from pre-built in-memory cache
     return jsonify(CACHE_MARKERS)
 
 # High-Performance Performance Test / Health Check Endpoint

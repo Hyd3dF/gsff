@@ -33,19 +33,22 @@
             background-color: var(--bg);
         }
 
-        /* Map Layer Selection Overlay */
+        /* Map Layer Selection Overlay (Mobile Responsive) */
         .map-layer-selector {
             position: absolute;
             top: 20px;
             right: 16px;
             background-color: rgba(255, 255, 255, 0.95);
-            padding: 4px;
+            padding: 5px;
             border-radius: 14px;
             box-shadow: var(--shadow);
             z-index: 1000;
             border: 1px solid var(--border);
             display: flex;
             gap: 4px;
+            max-width: calc(100% - 32px);
+            flex-wrap: wrap; /* Auto wraps on very small screens */
+            justify-content: flex-end;
         }
 
         .map-ctrl-btn {
@@ -59,6 +62,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             color: var(--text-muted);
+            white-space: nowrap;
         }
 
         .map-ctrl-btn.active {
@@ -66,25 +70,61 @@
             color: white;
             box-shadow: 0 4px 8px rgba(0, 122, 255, 0.15);
         }
-        
+
         /* Custom map markers */
         .custom-pin {
             background-color: var(--primary);
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
             border: 2px solid white;
             box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        
+        .custom-pin:hover {
+            transform: scale(1.2);
+        }
+
+        /* GPS Pulse Effect */
+        .gps-pulse {
+            width: 18px;
+            height: 18px;
+            background-color: #007AFF;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 8px rgba(0, 122, 255, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.9; }
+            50% { transform: scale(1.2); opacity: 0.5; }
+            100% { transform: scale(0.9); opacity: 0.9; }
+        }
+
+        /* Small mobile screens optimization */
+        @media (max-width: 380px) {
+            .map-layer-selector {
+                padding: 4px;
+                border-radius: 10px;
+                top: 10px;
+                right: 10px;
+                max-width: calc(100% - 20px);
+            }
+            .map-ctrl-btn {
+                padding: 6px 10px;
+                font-size: 10px;
+                border-radius: 8px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- Style Selector Controls Floating on Map -->
-    <div class="map-layer-selector">
-        <button class="map-ctrl-btn active" id="btn-2d" onclick="setMapStyle('2d')">2D</button>
-        <button class="map-ctrl-btn" id="btn-satellite" onclick="setMapStyle('satellite')">Uydu</button>
-        <button class="map-ctrl-btn" id="btn-3d" onclick="setMapStyle('3d')">3D Arazi</button>
+    <!-- Dynamic Style Selector Controls Floating on Map -->
+    <div class="map-layer-selector" id="controls-container">
+        <!-- Built dynamically from Python configurations -->
     </div>
 
     <div id="map"></div>
@@ -93,15 +133,16 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         let map;
-        let mapMarkers = [];
+        const activeMarkers = {}; // Keep track of active markers on the map to prevent redraw lag
         const apiKey = "{{ api_key }}";
+        let userLocationMarker;
 
         // Define map tile layers
         const layers = {
-            '2d': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            'standard': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; CARTO'
             }),
-            'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            'hybrid': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                 attribution: '&copy; Esri'
             }),
             '3d': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
@@ -109,39 +150,127 @@
             })
         };
 
-        let currentLayer = '2d';
+        let currentLayer = 'standard';
 
-        // Set map styles dynamically (2D, Satellite, 3D Shaded Terrain)
+        // Set map styles dynamically
         function setMapStyle(style) {
-            if (currentLayer === style) return;
+            const targetLayer = style === 'hybrid' ? 'hybrid' : (style === '3d' ? '3d' : 'standard');
+            if (currentLayer === targetLayer) return;
             
             map.removeLayer(layers[currentLayer]);
-            layers[style].addTo(map);
+            layers[targetLayer].addTo(map);
             
-            // Toggle active styling
-            document.querySelectorAll('.map-ctrl-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`btn-${style}`).classList.add('active');
-            
-            currentLayer = style;
+            currentLayer = targetLayer;
         }
 
         // Initialize Leaflet Map
         function initMap() {
             // Default center around Turkey
             map = L.map('map', {
-                zoomControl: false, // Clean UI without zoom control (+/- buttons)
+                zoomControl: false, // Clean UI without zoom control
                 attributionControl: false // Minimalist clean look
             }).setView([39.9334, 32.8597], 6);
 
-            // Add default 2D layer
-            layers['2d'].addTo(map);
+            // Add default standard 2D layer
+            layers['standard'].addTo(map);
             
-            // Load markers initially and start polling
+            // Geolocation callbacks
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', onLocationError);
+            
+            // Fetch configuration and markers
+            loadConfigAndControls();
             loadMarkers();
-            setInterval(loadMarkers, 3000); // Polling every 3 seconds for real-time updates
+            
+            // Poll for markers using smooth diffing (no-lag panning)
+            setInterval(loadMarkers, 3000);
         }
 
-        // Load active markers from the Python API
+        // Fetch dynamic buttons from Python `/api/config` and build UI
+        function loadConfigAndControls() {
+            fetch('/api/config', {
+                method: 'GET',
+                headers: {
+                    'X-API-Key': apiKey,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(config => {
+                const container = document.getElementById('controls-container');
+                container.innerHTML = '';
+
+                if (config.map_buttons && config.map_buttons.length > 0) {
+                    config.map_buttons.forEach((btn, idx) => {
+                        const button = document.createElement('button');
+                        button.className = 'map-ctrl-btn';
+                        button.id = `btn-${btn.id}`;
+                        button.innerText = btn.label;
+                        
+                        // Set first button active on load
+                        if (idx === 0) {
+                            button.classList.add('active');
+                            if (btn.action_type === 'style') {
+                                setMapStyle(btn.map_type);
+                            }
+                        }
+
+                        // Attach event listeners
+                        button.onclick = function() {
+                            // Toggle active states for button classes
+                            document.querySelectorAll('.map-ctrl-btn').forEach(b => b.classList.remove('active'));
+                            button.classList.add('active');
+
+                            if (btn.action_type === 'style') {
+                                // Switch Leaflet tiles based on style parameters
+                                const styleMode = btn.id === '3d' || btn.pitch > 30 ? '3d' : btn.map_type;
+                                setMapStyle(styleMode);
+                            } else if (btn.action_type === 'function') {
+                                // Trigger function call
+                                if (btn.id === 'locate') {
+                                    triggerLocation();
+                                }
+                            }
+                        };
+                        
+                        container.appendChild(button);
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error loading config:', err.message);
+            });
+        }
+
+        // Locate User GPS logic
+        function triggerLocation() {
+            map.locate({setView: true, maxZoom: 14});
+        }
+
+        function onLocationFound(e) {
+            const radius = e.accuracy;
+
+            if (userLocationMarker) {
+                map.removeLayer(userLocationMarker);
+            }
+
+            // Create a pulsating blue marker on user GPS location
+            userLocationMarker = L.marker(e.latlng, {
+                icon: L.divIcon({
+                    className: 'gps-pulse-icon',
+                    html: "<div class='gps-pulse'></div>",
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                })
+            }).addTo(map).bindPopup("You are here").openPopup();
+        }
+
+        function onLocationError(e) {
+            alert("Location access denied or unavailable: " + e.message);
+        }
+
+        // Load active markers with zero-lag diffing (smooth panning)
         function loadMarkers() {
             fetch('/api/markers', {
                 method: 'GET',
@@ -156,28 +285,42 @@
                 return res.json();
             })
             .then(data => {
-                // Clear old map markers
-                mapMarkers.forEach(m => map.removeLayer(m));
-                mapMarkers = [];
+                const newMarkersMap = {};
 
                 data.forEach(marker => {
-                    // Create marker with a custom clean circular icon
-                    const leafMarker = L.marker(
-                        [marker.coordinate.latitude, marker.coordinate.longitude],
-                        {
-                            icon: L.divIcon({
-                                className: 'custom-pin-icon',
-                                html: "<div class='custom-pin'></div>",
-                                iconSize: [12, 12],
-                                iconAnchor: [6, 6]
-                            })
-                        }
-                    )
-                    .bindPopup(`<b>${marker.title}</b><br>${marker.description || ''}`)
-                    .addTo(map);
-                    
-                    mapMarkers.push(leafMarker);
+                    const key = `${marker.coordinate.latitude.toFixed(6)}_${marker.coordinate.longitude.toFixed(6)}`;
+                    newMarkersMap[key] = marker;
+
+                    // If marker is not on map, add it
+                    if (!activeMarkers[key]) {
+                        const leafMarker = L.marker(
+                            [marker.coordinate.latitude, marker.coordinate.longitude],
+                            {
+                                icon: L.divIcon({
+                                    className: 'custom-pin-icon',
+                                    html: "<div class='custom-pin'></div>",
+                                    iconSize: [14, 14],
+                                    iconAnchor: [7, 7]
+                                })
+                            }
+                        )
+                        .bindPopup(`<b>${marker.title}</b><br>${marker.description || ''}`)
+                        .addTo(map);
+
+                        activeMarkers[key] = leafMarker;
+                    } else {
+                        // If marker details changed, update popup
+                        activeMarkers[key].setPopupContent(`<b>${marker.title}</b><br>${marker.description || ''}`);
+                    }
                 });
+
+                // Remove markers that are no longer present in the database (cached list diffing)
+                for (let key in activeMarkers) {
+                    if (!newMarkersMap[key]) {
+                        map.removeLayer(activeMarkers[key]);
+                        delete activeMarkers[key];
+                    }
+                }
             })
             .catch(err => {
                 console.error('Error fetching markers:', err.message);
