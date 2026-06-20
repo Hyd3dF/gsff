@@ -1,0 +1,10 @@
+# Ignore SQLite local database
+map_data.db
+
+# Ignore Python caches
+__pycache__/
+*.pyc
+
+# OS generated files
+.DS_Store
+Thumbs.db
