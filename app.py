@@ -40,6 +40,26 @@ def init_db():
         )
     ''')
     
+    # Clean up and wrap any invalid coordinates in the database (lat outside [-90,90], lng outside [-180,180])
+    cursor.execute("SELECT id, latitude, longitude FROM markers")
+    rows = cursor.fetchall()
+    for row in rows:
+        r_id = row['id']
+        lat = row['latitude']
+        lng = row['longitude']
+        needs_update = False
+        
+        if lat < -90.0 or lat > 90.0:
+            lat = max(-90.0, min(90.0, lat))
+            needs_update = True
+            
+        if lng < -180.0 or lng > 180.0:
+            lng = ((lng + 180.0) % 360.0) - 180.0
+            needs_update = True
+            
+        if needs_update:
+            cursor.execute("UPDATE markers SET latitude = ?, longitude = ? WHERE id = ?", (lat, lng, r_id))
+            
     # Pre-populate sample markers if empty
     cursor.execute("SELECT COUNT(*) FROM markers")
     if cursor.fetchone()[0] == 0:
@@ -113,6 +133,17 @@ def admin_add_marker():
     if lat is None or lng is None:
         return jsonify({"error": "Latitude and longitude are required"}), 400
         
+    try:
+        lat = float(lat)
+        lng = float(lng)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Latitude and longitude must be numbers"}), 400
+
+    # Clamp latitude to [-90, 90]
+    lat = max(-90.0, min(90.0, lat))
+    # Wrap longitude to [-180, 180]
+    lng = ((lng + 180.0) % 360.0) - 180.0
+    
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(

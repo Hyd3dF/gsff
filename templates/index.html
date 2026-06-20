@@ -576,17 +576,18 @@
                 position: 'bottomleft'
             }).addTo(map);
 
-            // Handle click on map to fill form coordinates
+            // Handle click on map to fill form coordinates (wrapping coordinates to standard [-180, 180] ranges)
             map.on('click', function(e) {
-                const lat = e.latlng.lat;
-                const lng = e.latlng.lng;
+                const wrapped = e.latlng.wrap();
+                const lat = wrapped.lat;
+                const lng = wrapped.lng;
                 
                 document.getElementById('latitude').value = lat.toFixed(6);
                 document.getElementById('longitude').value = lng.toFixed(6);
 
                 // Add or update temporary marker to show where user clicked
                 if (clickTempMarker) {
-                    clickTempMarker.setLatLng(e.latlng);
+                    clickTempMarker.setLatLng(wrapped);
                 } else {
                     const tempIcon = L.divIcon({
                         className: 'temp-pin',
@@ -594,7 +595,7 @@
                         iconSize: [12, 12],
                         iconAnchor: [6, 6]
                     });
-                    clickTempMarker = L.marker(e.latlng, { icon: tempIcon }).addTo(map);
+                    clickTempMarker = L.marker(wrapped, { icon: tempIcon }).addTo(map);
                 }
             });
 
