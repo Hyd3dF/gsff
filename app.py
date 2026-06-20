@@ -227,6 +227,24 @@ def get_markers():
         })
     return jsonify(markers)
 
+# MOBILE APP API: Get API Key Info (requires API key)
+@app.route('/api/key-info', methods=['GET'])
+@require_api_key
+def get_key_info():
+    api_key = request.headers.get('X-API-Key')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT description, created_at FROM api_keys WHERE key = ?", (api_key,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return jsonify({
+            "key": api_key,
+            "description": row["description"],
+            "created_at": row["created_at"]
+        })
+    return jsonify({"error": "Key not found"}), 404
+
 # Initialize Database on load
 init_db()
 
