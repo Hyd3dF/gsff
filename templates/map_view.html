@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>İz Map</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg: #ffffff;
+            --text-main: #1c1c1e;
+            --text-muted: #8e8e93;
+            --border: rgba(0, 0, 0, 0.05);
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: var(--font);
+            background-color: var(--bg);
+        }
+
+        /* Map Layer Selection Overlay */
+        .map-layer-selector {
+            position: absolute;
+            top: 20px;
+            right: 16px;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 4px;
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 4px;
+        }
+
+        .map-ctrl-btn {
+            border: none;
+            background: none;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-family: var(--font);
+            font-size: 11px;
+            font-weight: 750;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+
+        .map-ctrl-btn.active {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 122, 255, 0.15);
+        }
+        
+        /* Custom map markers */
+        .custom-pin {
+            background-color: var(--primary);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Style Selector Controls Floating on Map -->
+    <div class="map-layer-selector">
+        <button class="map-ctrl-btn active" id="btn-2d" onclick="setMapStyle('2d')">2D</button>
+        <button class="map-ctrl-btn" id="btn-satellite" onclick="setMapStyle('satellite')">Uydu</button>
+        <button class="map-ctrl-btn" id="btn-3d" onclick="setMapStyle('3d')">3D Arazi</button>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        let map;
+        let mapMarkers = [];
+        const apiKey = "{{ api_key }}";
+
+        // Define map tile layers
+        const layers = {
+            '2d': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO'
+            }),
+            'satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri'
+            }),
+            '3d': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenTopoMap'
+            })
+        };
+
+        let currentLayer = '2d';
+
+        // Set map styles dynamically (2D, Satellite, 3D Shaded Terrain)
+        function setMapStyle(style) {
+            if (currentLayer === style) return;
+            
+            map.removeLayer(layers[currentLayer]);
+            layers[style].addTo(map);
+            
+            // Toggle active styling
+            document.querySelectorAll('.map-ctrl-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${style}`).classList.add('active');
+            
+            currentLayer = style;
+        }
+
+        // Initialize Leaflet Map
+        function initMap() {
+            // Default center around Turkey
+            map = L.map('map', {
+                zoomControl: false, // Clean UI without zoom control (+/- buttons)
+                attributionControl: false // Minimalist clean look
+            }).setView([39.9334, 32.8597], 6);
+
+            // Add default 2D layer
+            layers['2d'].addTo(map);
+            
+            // Load markers initially and start polling
+            loadMarkers();
+            setInterval(loadMarkers, 3000); // Polling every 3 seconds for real-time updates
+        }
+
+        // Load active markers from the Python API
+        function loadMarkers() {
+            fetch('/api/markers', {
+                method: 'GET',
+                headers: {
+                    'X-API-Key': apiKey,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('API key validation failed');
+                return res.json();
+            })
+            .then(data => {
+                // Clear old map markers
+                mapMarkers.forEach(m => map.removeLayer(m));
+                mapMarkers = [];
+
+                data.forEach(marker => {
+                    // Create marker with a custom clean circular icon
+                    const leafMarker = L.marker(
+                        [marker.coordinate.latitude, marker.coordinate.longitude],
+                        {
+                            icon: L.divIcon({
+                                className: 'custom-pin-icon',
+                                html: "<div class='custom-pin'></div>",
+                                iconSize: [12, 12],
+                                iconAnchor: [6, 6]
+                            })
+                        }
+                    )
+                    .bindPopup(`<b>${marker.title}</b><br>${marker.description || ''}`)
+                    .addTo(map);
+                    
+                    mapMarkers.push(leafMarker);
+                });
+            })
+            .catch(err => {
+                console.error('Error fetching markers:', err.message);
+            });
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>

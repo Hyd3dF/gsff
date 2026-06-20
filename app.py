@@ -328,6 +328,14 @@ def health_check():
         "timestamp": datetime.now().isoformat()
     })
 
+# MOBILE APP WEBVIEW MAP: Renders a clean full-screen map verified by API key query param
+@app.route('/map', methods=['GET'])
+def render_webview_map():
+    api_key = request.args.get('key')
+    if not api_key or api_key not in CACHE_API_KEYS:
+        return "Unauthorized: Invalid or missing API Key", 403
+    return render_template('map_view.html', api_key=api_key)
+
 # Initialize Database and Load Cache on load
 init_db()
 load_cache()
