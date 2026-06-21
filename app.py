@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import uuid
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
@@ -258,6 +260,108 @@ def get_key_info():
             "created_at": row["created_at"]
         })
     return jsonify({"error": "Key not found"}), 404
+
+
+POSTGRES_URL = os.environ.get(
+    'DATABASE_URL', 
+    'postgres://postgres:EaODXjObZCxGvSBOh2HWJj0AKc7zwD70noRUGTfbBII7SR0bY4bU4qcZy0XyXPnT@62.171.129.151:5432/postgres'
+)
+
+def get_pg_conn():
+    return psycopg2.connect(POSTGRES_URL)
+
+@app.route('/api/photos/sync', methods=['POST'])
+@require_api_key
+def sync_photos():
+    data = request.json or {}
+    photos = data.get('photos', [])
+    if not photos:
+        return jsonify({"success": True, "message": "No photos provided", "count": 0}), 200
+
+    conn = get_pg_conn()
+    cursor = conn.cursor()
+    success_count = 0
+    try:
+        for p in photos:
+            device_photo_id = p.get('id')
+            lat = p.get('lat')
+            lon = p.get('lon')
+            timestamp_ms = p.get('timestamp')
+            
+            if not device_photo_id or lat is None or lon is None or timestamp_ms is None:
+                continue
+                
+            captured_at = datetime.fromtimestamp(timestamp_ms / 1000.0)
+            
+            cursor.execute(
+                """
+                INSERT INTO photos (device_photo_id, latitude, longitude, captured_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (device_photo_id) 
+                DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, captured_at = EXCLUDED.captured_at
+                """,
+                (device_photo_id, float(lat), float(lon), captured_at)
+            )
+            success_count += 1
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print("Error syncing photos:", e)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify({"success": True, "count": success_count})
+
+@app.route('/api/photos/clusters', methods=['GET'])
+@require_api_key
+def get_photo_clusters_api():
+    min_lat = request.args.get('min_lat')
+    min_lon = request.args.get('min_lon')
+    max_lat = request.args.get('max_lat')
+    max_lon = request.args.get('max_lon')
+    zoom = request.args.get('zoom')
+
+    try:
+        min_lat = float(min_lat) if min_lat is not None else -90.0
+        min_lon = float(min_lon) if min_lon is not None else -180.0
+        max_lat = float(max_lat) if max_lat is not None else 90.0
+        max_lon = float(max_lon) if max_lon is not None else 180.0
+        zoom = int(zoom) if zoom is not None else 50
+    except ValueError:
+        return jsonify({"error": "Invalid numeric parameter"}), 400
+
+    conn = get_pg_conn()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute(
+            """
+            SELECT cluster_id, point_count, center_lat, center_lon
+            FROM get_photo_clusters(%s, %s, %s, %s, %s)
+            """,
+            (min_lat, min_lon, max_lat, max_lon, zoom)
+        )
+        rows = cursor.fetchall()
+    except Exception as e:
+        print("Error calling get_photo_clusters:", e)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    markers = []
+    for r in rows:
+        markers.append({
+            "coordinate": {
+                "latitude": r["center_lat"],
+                "longitude": r["center_lon"]
+            },
+            "title": f"{r['point_count']} Fotoğraf",
+            "description": f"Bu bölgede {r['point_count']} anınız var."
+        })
+
+    return jsonify(markers)
 
 # Initialize Database on load
 init_db()
